@@ -1,15 +1,15 @@
+#!/usr/bin/env python3
+
 import pyodbc
 import os
 from datetime import datetime, timedelta
 import smtplib
-import ally_rpt_config_dev
+import ally_rpt_config_prod
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-#server = 'eagle\\distribution'
-#database = 'Tradeking'
-server = 'D1WAPESQLNP2\\DEV2'
+server = 'eagle\\distribution'
 database = 'Tradeking'
 
 driver = '{ODBC Driver 17 for SQL Server}'
@@ -24,20 +24,28 @@ tables_pop = "<b>All Critical Tables Have Been Populated</b><br>\n"
 extracts_del = "<b>All Critical Extracts Have Been Delivered</b><br>\n"
 eob_flag = "<b>End Of Batch Flag Is Available On Eagle\\TradeKing</b><br>\n"
 
-#tidal_db_server = "Ozark\\ITTools" 
-#tidal_db = "Admiral"
-tidal_db_server = "D1WLUOSQLNP2\\DEV" 
+tidal_db_server = "Ozark\\ITTools" 
 tidal_db = "Admiral"
+
 
 if not os.path.exists("C:/py_scripts/Ally_Report/"):
     print("Ab path:", os.path.abspath(os.getcwd()))
-    os.mkdir("C:/py_scripts/Ally_Report/")
+    os.makedirs("C:/py_scripts/Ally_Report/")
 filename = "C:/py_scripts/Ally_Report/Ally_report_" + time_stamp.strftime("%Y_%b_%d") + ".html"
+'''
+dir = os.path.abspath(os.getcwd())
+path = os.path.join(dir + "/py_scripts/Ally_Report/")
 
+if not os.path.exists(dir + "/py_scripts/Ally_Report/"):
+    print("Ab path:", os.path.abspath(os.getcwd()))
+    
+    os.makedirs(path)
+filename = path + "Ally_report_" + time_stamp.strftime("%Y_%b_%d") + ".html"
+'''
 
 #SQL Statements for report
-conn_str = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={ally_rpt_config_dev.username};PWD={ally_rpt_config_dev.password}'
-conn_str_TIDAL = f'DRIVER={driver};SERVER={tidal_db_server};DATABASE={tidal_db};UID={ally_rpt_config_dev.username};PWD={ally_rpt_config_dev.password}'
+conn_str = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={ally_rpt_config_prod.username};PWD={ally_rpt_config_prod.password}'
+conn_str_TIDAL = f'DRIVER={driver};SERVER={tidal_db_server};DATABASE={tidal_db};UID={ally_rpt_config_prod.username};PWD={ally_rpt_config_prod.password}'
 
 initial_date_string = "declare @PD datetime; select @PD = MAX(processdate) from LoadStatus where Firm = '10';"
 
@@ -49,10 +57,11 @@ queryEXT = "select jm.jobmst_name, jr.jobrun_stachgtm, jr.jobrun_status from job
 
 
 updated_query = "select COUNT(*) as '{}' from {} where Firm=10 and ProcessDate = @PD"
-updated_query_without_date = "select COUNT(*) as '{}' from {} where Firm=10"
+#updated_query_without_date = "select COUNT(*) as '{}' from {} where Firm=10"
+updated_query_without_date = "select COUNT(*) from {} where Firm=10"
 
 #List of reported items that will not return a date column
-no_date_list = ("SecurityBase", "OverNightBuyingPower","PositionBreakoutStrategyOvernight","ReviewProcessorEventData")
+no_date_list = ("SecurityBase", "OvernightBuyingPower","PositionBreakOutStrategyOvernight","ReviewProcessorEventData")
 
 #Initial SQL call
 def call_sql_query(query_str):
@@ -81,8 +90,8 @@ def count_compile():
             #textfile.write("<h1>Ally Critical Data Feeds - End Of Batch Update for: " + time_stamp.strftime("%Y-%b-%d")+"</h1> \n")
             textfile.write("<style>table, th, td {  border: 1px solid black;  border-collapse: collapse; padding: 5px}</style>\n")
             with pyodbc.connect(conn_str) as conn:
-                #print("Success")
-        
+                print(no_date_list)
+                eob_not_rec = 0
                 cursor = conn.cursor()
                 cursor.execute(query_completed)
                 columns = cursor.description
@@ -92,7 +101,7 @@ def count_compile():
        
                 textfile.write("<table>\n")
                 textfile.write("\t<tr>\n")
-                textfile.write("\t\t<th>Table Name</th><th> Status </th><th> EndTime </th>\n")
+                textfile.write("\t\t<th>Table Name</th><th> Status </th><th> Row Count / End Time </th>\n")
                 textfile.write("\t</tr>\n")
                 if str(len(results)) == 0:
                     print(str(len(results)) + " - Rows; nothing to display")
@@ -110,7 +119,7 @@ def count_compile():
                             status = "Processing"
                         elif str(row[6]) == "N":
                             status = "Not Started"
-                        #print("<td>" + str(row[3]) + "<\td><td> \t" + str(row[6]) + "<\td><td> \t" + row[5].strftime("%c"))
+                        #print("<td>" + str(row[3]) + "<\td><td>" + str(row[6]) + "<\td><td>" + row[5].strftime("%c"))
                         #textfile.write("<tr><td>" + str(row[3]) + "</td><td> \t" + str(row[6]) + "</td><td> \t" + row[5].strftime("%X %x")+"</td></tr>\n")
                         #textfile.write("<tr><td>" + str(row[3]) + "</td><td> \t" + str(row[6]) + "</td><td> \t" + str(count_result[1]) +"</td></tr>\n")
                         textfile.write("\t<tr>\n\t\t<td>" + str(row[3]) + "</td>\t<td>" + status + "</td>\t<td>" + str(f"{count_result[1]:,}") +"</td>\n\t</tr>\n")
@@ -133,17 +142,19 @@ def count_compile():
                     #if hours.seconds <= 2.5:
                     if int(row2[16].strftime("%d")) == int(time_stamp.strftime("%d")):
                         textfile.write("\t\t<td>End Of Batch: </td>\t<td>"+ status +"</td>\t<td>" + row2[16].strftime("%X %x")+"</td>\n")
+                        eob_not_rec = 1
                     #elif hours.seconds > 2.5:
                     elif int(row2[16].strftime("%d")) < int(time_stamp.strftime("%d")):
+                        
                         textfile.write("\t\t<td>End Of Batch: </td>\t<td>Pending</td>\t<td>***Audit time is not TODAY***</td>\n")
-                        return False
+                        return False, eob_not_rec
                     else:
-                        print(row2[16].strftime("%X % x")," Batch timestamp not current, something may have gone wrong")
-                        return False 
+                        print(row2[16].strftime("%X %x")," Batch timestamp not current, something may have gone wrong")
+                        return False, eob_not_rec
                 textfile.write("\t</tr>\n")    
                 textfile.write("</table>\n")
                 
-
+                return True, eob_not_rec
            
     except pyodbc.Error as e:
         print("Error: ", str(e))
@@ -170,6 +181,12 @@ def send_compile():
                 textfile.write("<tr>\n")
                 textfile.write("<th>Report</th><th> Status </th><th> EndTime </th>\n")
                 textfile.write("</tr>\n")
+				
+                status_tracker = 0
+                #Check if results are empty
+                if not results3:
+                    return False, status_tracker
+                
                 for row in results3:
                 
                     jobname = row[0].split
@@ -182,17 +199,19 @@ def send_compile():
                     else:
                         status = "Pending"
                         textfile.write("<tr><td>" + str(row[0][8:]) + "</td>\t<td>" + status + "</td>\t<td>" + row[1].strftime("%X %x")+" CT </td></tr>\n")
+                        status_tracker = status_tracker + 1
                 for rep in report_list:
                     if rep == "EXT922":
-                        path = "Q:/Firm10/krsg/"+file_time_stamp.strftime("%Y%m%d")+"/"+rep+"/"+rep+"_KRSG_"+file_time_stamp.strftime("%Y%m%d")+".csv"
+                        path = "//d1wrptfsrprd3/reports/Firm10/krsg/"+file_time_stamp.strftime("%Y%m%d")+"/"+rep+"/"+rep+"_KRSG_"+file_time_stamp.strftime("%Y%m%d")+".csv"
                     else:
-                        path = "Q:/Firm10/krsg/"+file_time_stamp.strftime("%Y%m%d")+"/"+rep+"/"+rep+"_KRSG.csv"
+                        path = "//d1wrptfsrprd3/reports/Firm10/krsg/"+file_time_stamp.strftime("%Y%m%d")+"/"+rep+"/"+rep+"_KRSG.csv"
                     print(path)
                     if os.path.exists(path):
                         textfile.write("<tr><td>"+rep+"</td>\t<td>Complete</td>\t<td>"+ get_mod_time(path).strftime("%X %x")+" CT </td></tr>\n")
                     else:
                         print(path, " does not exist")
-                        textfile.write("<tr><td>EXT922</td><td>Pending</td><td></td></tr>\n")
+                        textfile.write("<tr><td>"+rep+"</td><td>Pending</td><td></td></tr>\n")
+                        status_tracker = 1
                 '''
                 textfile.write("<tr><td>EXT922</td><td></td><td>"+ get_mod_time("Q:/Firm10/ALLW/"+file_time_stamp.strftime("%Y%m%d")+"/EXT922/EXT922_ALLW_"+file_time_stamp.strftime("%Y%m%d")+".csv").strftime("%X %x")+" CT </td></tr>")
                 textfile.write("<tr><td>EXT981</td><td></td><td>"+ get_mod_time("Q:/Firm10/ALLW/"+file_time_stamp.strftime("%Y%m%d")+"/EXT981/EXT981_ALLW_"+file_time_stamp.strftime("%Y%m%d")+".csv").strftime("%X %x")+" CT </td></tr>")
@@ -201,6 +220,10 @@ def send_compile():
                 textfile.write("</tr>")    
                 '''
                 textfile.write("</table>\n")
+                print(status_tracker)
+                return True, status_tracker
+                if status_tracker > 0:
+                    return False, status_tracker
     except pyodbc.Error as e:
         print("Error: ", str(e))
         return False
@@ -210,7 +233,7 @@ def send_compile():
 def send_email_via_smtp(recipient, subject, body):
     try:
         message = MIMEMultipart('alternative')
-        message['From'] = ally_rpt_config_dev.sender_address
+        message['From'] = ally_rpt_config_prod.sender_address
         message['To'] = recipient
         message['Subject'] = subject
         msg = open(filename,"r")
@@ -222,7 +245,7 @@ def send_email_via_smtp(recipient, subject, body):
         #session.starttls()  # enable security
         #session.login(sender_address, sender_pass)  # login with mail_id and password
         text = message.as_string()
-        session.sendmail(ally_rpt_config_dev.sender_address, recipient.split(","), text)
+        session.sendmail(ally_rpt_config_prod.sender_address, recipient.split(","), text)
         session.quit()
     
     except Exception as e:
@@ -235,33 +258,51 @@ def update_flags(one_line, line_no):
 		lines.insert(1, one_line)  # you can use any index if you know the line index
 		fp.seek(0)                 # file pointer locates at the beginning to write the whole file again
 		fp.writelines(lines)       # write whole lists again to the same file
-    
-    
-if count_compile() is False :
-    update_flags("<b>Table data unavailable</b><br>\n",1)
-    update_flags("<b>End of Batch data unavailable</b><br>\n<b>Files Are Currently Being Received</b><br>\n<b>Updates To Follow</b><br>\n",2)
-                                                                                      
-else: 
-    update_flags(tables_pop,1)
-    update_flags(eob_flag,2)
-    
-if send_compile() is False:
-    update_flags("<b>Extract data unavailable</b><br>\n",3)
-else:
-    update_flags(extracts_del,2)
-#update_flags(tables_pop,0)
-#update_flags(extracts_del,1)
-#update_flags(eob_flag,2)
 
-if count_compile() is False and send_compile() is False:
-    email_Subject = "Ally Critical Data Feeds - 2:30am CT Update for Process Date " + file_time_stamp.strftime("%Y-%b-%d") 
+title = False
+cc = False
+sc = False
+
+cc_TorF, eob_flag = count_compile()
+sc_TorF, x = send_compile()
+
+if x > 0:
+##    When we do not have all extracts delivered and all tables populated
+    update_flags("<b>Files Are Currently Being received\nUpdates To Follow",1)
+    sc = False
+    title = False
+elif x == 0 and sc_TorF is False:
+##  When we have all extracts delivered but do not have all tables populated
+    update_flags("<b>All Critical Extracts Have Been Delivered<br>\nFiles Are Currently Being Received<br>\nUpdates To Follow</b><br>\n",1)
+    sc = False
+    title = False
+elif sc_TorF is False:
+##  When we have all tables populated but do not have all extracts delivered
+    update_flags("<b>All Critical Tables Have Been Delivered<br>\nFiles Are Currently Being Received<br>\nUpdates To Follow<br></b>\n",1)
+    sc = False
+    title = False
+elif sc_TorF is True and eob_flag == 0:
+    update_flags("<b>All Critical Extracts Have Been Delivered<br>\nAll Critical Tables Have Been Delivered<br>\nFiles Are Currently Being Received<br>\nUpdates To Follow<br></b>\n",1)
+    sc = True
+    cc = False
+    title = True
+else:
+    update_flags("<b>All Critical Extracts Have Been Delivered<br> All Critical Tables Have Been Delivered<br> End Of Batch Flag Is Available On Eagle\TradeKing</b>\n",1)
+    sc = True
+    cc = True
+    title = True
+
+
+
+if cc is False or sc is False:
+    email_Subject = "Ally Critical Data Feeds - 2:30am CT Update for Process Date " + file_time_stamp.strftime("%Y-%b-%d")
     update_flags("<h1>"+email_Subject+"</h1>",0)
 else:
-    email_Subject = "Ally Critical Data Feeds - End Of Batch Update for " + time_stamp.strftime("%Y-%b-%d")
-    update_flags("<h1>"+email_Subject+"</h1>",0)
+    email_Subject = "Ally Critical Data Feeds - End Of Batch Update for " + file_time_stamp.strftime("%Y-%b-%d")
+    update_flags("<h1>"+email_Subject+"</h1>",1)
 
 #email_Subject = "Ally Critical Data Feeds - End Of Batch Update for " + time_stamp.strftime("%Y-%b-%d")
 
-#send_email_via_smtp('hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
-
+#send_email_via_smtp('tkbatch@invest.ally.com,hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
+send_email_via_smtp('hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com,sgilmore@apexfintechsolutions', email_Subject, "")
 print("Ally Report Script complete")
