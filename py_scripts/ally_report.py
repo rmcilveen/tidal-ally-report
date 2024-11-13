@@ -53,7 +53,7 @@ query_completed = initial_date_string + "select * from LoadStatus where Firm = '
 
 queryEOB = "select top 1 auditlastupdated, processdate, * From tradeking.dbo.loadstatusaudit where status = 'c' and loadstatusid = 315 order by 2 desc"
 
-queryEXT = "select jm.jobmst_name, jr.jobrun_stachgtm, jr.jobrun_status from jobrun (nolock) jr join jobmst jm on jr.jobmst_id = jm.jobdtl_id where jr.jobmst_id in ( 	select b.jobmst_id from [dbo].[jobdtl] a (nolock)  		join [dbo].[jobmst] b (nolock) on b.jobmst_id = a.jobdtl_id 		where a.jobdtl_params like '%KRSG%' and b.jobmst_name like '%Zip EXT%')and (jobrun_proddt >= getdate() -2 and jobrun_proddt < getdate())and jobrun_status <> 0 order by jm. jobmst_name,jr.jobmst_id,jobrun_rundt;"
+queryEXT = "select jm.jobmst_name, jr.jobrun_stachgtm, jr.jobrun_status,jr.* from jobrun (nolock) jr join jobmst jm on jr.jobmst_id = jm.jobmst_id where jr.jobmst_id in ( select b.jobmst_id from [dbo].[jobdtl] a (nolock) join [dbo].[jobmst] b (nolock) on b.jobdtl_id = a.jobdtl_id where a.jobdtl_params like '%KRSG%' and b.jobmst_name like '%020 EXT%') and (jobrun_proddt >= getdate() -2 and jobrun_proddt < getdate()) and jobrun_status <> 0 order by jm. jobmst_name,jr.jobmst_id,jobrun_rundt;"
 
 
 updated_query = "select COUNT(*) as '{}' from {} where Firm=10 and ProcessDate = @PD"
@@ -146,7 +146,7 @@ def count_compile():
                     #elif hours.seconds > 2.5:
                     elif int(row2[16].strftime("%d")) < int(time_stamp.strftime("%d")):
                         
-                        textfile.write("\t\t<td>End Of Batch: </td>\t<td>Pending</td>\t<td>***Audit time is not TODAY***</td>\n")
+                        textfile.write("\t\t<td>End Of Batch: </td>\t<td>Pending</td>\t<td></td>\n")
                         return False, eob_not_rec
                     else:
                         print(row2[16].strftime("%X %x")," Batch timestamp not current, something may have gone wrong")
@@ -195,10 +195,10 @@ def send_compile():
                     status = ""
                     if row[2] in complete:
                         status = "Complete"
-                        textfile.write("<tr><td>" + str(row[0][8:]) + "</td>\t<td>" + status + "</td>\t<td>" + row[1].strftime("%X %x")+" CT </td></tr>\n")
+                        textfile.write("<tr><td>" + str(row[0][4:10]) + "</td>\t<td>" + status + "</td>\t<td>" + row[1].strftime("%X %x")+" CT </td></tr>\n")
                     else:
                         status = "Pending"
-                        textfile.write("<tr><td>" + str(row[0][8:]) + "</td>\t<td>" + status + "</td>\t<td>" + row[1].strftime("%X %x")+" CT </td></tr>\n")
+                        textfile.write("<tr><td>" + str(row[0][4:10]) + "</td>\t<td>" + status + "</td>\t<td>" + row[1].strftime("%X %x")+" CT </td></tr>\n")
                         status_tracker = status_tracker + 1
                 for rep in report_list:
                     if rep == "EXT922":
@@ -303,6 +303,7 @@ else:
 
 #email_Subject = "Ally Critical Data Feeds - End Of Batch Update for " + time_stamp.strftime("%Y-%b-%d")
 
-#send_email_via_smtp('tkbatch@invest.ally.com,hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
-send_email_via_smtp('hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com,sgilmore@apexfintechsolutions', email_Subject, "")
+send_email_via_smtp('tkbatch@invest.ally.com,hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
+#send_email_via_smtp('hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com,sgilmore@apexfintechsolutions', email_Subject, "")
+
 print("Ally Report Script complete")
