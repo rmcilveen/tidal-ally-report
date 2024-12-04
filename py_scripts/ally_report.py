@@ -303,7 +303,7 @@ else:
 
 #email_Subject = "Ally Critical Data Feeds - End Of Batch Update for " + time_stamp.strftime("%Y-%b-%d")
 
-send_email_via_smtp('tkbatch@invest.ally.com,hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
+send_email_via_smtp('Streamliners@ally.com,tkbatch@invest.ally.com,hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com', email_Subject, "")  
 #send_email_via_smtp('hdooley@apexfintechsolutions.com,mkulkarni@apexfintechsolutions.com,rmcilveen@apexfintechsolutions.com,arossi@apexfintechsolutions.com,jrooney@apexfintechsolutions.com,sgilmore@apexfintechsolutions', email_Subject, "")
 
 print("Ally Report Script complete")
